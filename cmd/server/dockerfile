@@ -1,0 +1,31 @@
+# Build stage
+FROM golang:1.23 AS builder
+
+# Set environment variable for Go modules
+ENV GO111MODULE=on
+
+WORKDIR /app
+
+# Copy Go modules files from the root directory
+COPY ../../go.mod ../../go.sum ./
+RUN go mod download
+
+# Copy the entire project from the root directory
+COPY ../../ ./
+
+# Build the client binary from the current directory
+RUN CGO_ENABLED=0 GOOS=linux go build -o /server-app ./cmd/server
+
+# Runtime stage
+FROM alpine:latest
+
+WORKDIR /root/
+
+# Install libc compatibility if needed
+RUN apk add --no-cache libc6-compat
+
+# Copy the compiled binary from the build stage
+COPY --from=builder /server-app .
+
+# Copy the .env file
+COPY --from=builder /app/.env .env

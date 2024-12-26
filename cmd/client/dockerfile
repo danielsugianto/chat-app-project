@@ -1,0 +1,33 @@
+# Build stage
+FROM golang:1.23 AS builder
+
+# Set environment variable for Go modules
+ENV GO111MODULE=on
+
+# Move up to the root directory for the build context
+WORKDIR /app
+
+# Copy Go modules files from the root directory
+COPY ../../go.mod ../../go.sum ./
+RUN go mod download
+
+# Copy the entire project from the root directory
+COPY ../../ ./
+
+# Build the client binary from the current directory
+RUN CGO_ENABLED=0 GOOS=linux go build -o /client-app ./cmd/client
+
+# Runtime stage
+FROM alpine:latest
+
+# Set the working directory in the runtime container
+WORKDIR /root/
+
+# Copy the compiled binary from the build stage
+COPY --from=builder /client-app .
+
+# Copy the .env file from the current directory
+COPY --from=builder /app/.env .env
+
+# Set the default command to run the CLI app
+ENTRYPOINT ["./client-app"]
